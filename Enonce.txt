@@ -1,0 +1,5 @@
+Dans cette dernière partie du projet, on vous demande simplement de localiser les personnes ci-jointes dans la séquence vidéo (2 caméras) sur laquelle vous avez travaillé lors de la partie 2.
+
+Pour ce faire vous combinez la partie 1 (pour les comparaisons) et la partie 2 (pour les détections).
+
+Vous devez donc remettre 5 répertoires contenant les images dans lesquelles vous avez détecté chaque personne. Dans chacune de ces images, vous devez identifier ou se situe cette personne (en dessinant une boite englobante autour). 
