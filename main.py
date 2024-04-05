@@ -5,7 +5,11 @@ from PIL import Image
 from utils import model, tools
 import torch
 
-
+def draw_bounding_box_around_person(image, contour):
+    # Calculate bounding box coordinates for the contour
+    x, y, w, h = cv.boundingRect(contour)
+    # Draw the bounding box on the image
+    cv.rectangle(image, (x, y), (x+w, y+h), (-1, 255, 0), 2)
 
 def generate_mask(target_people):
 
@@ -34,31 +38,39 @@ def calc_histogram(image,mask_file,npy_format):
     hsv_image = cv.cvtColor(image, cv.COLOR_BGR2HSV)
 
     # Load mask (handle both NumPy array and image formats)
-    if npy_format:
+    if isinstance(mask_file, np.ndarray):
+        # The mask is already an ndarray, so use it directly
+        mask = mask_file
+    elif npy_format:
         mask = np.load(mask_file)
+        print("reading here...")
         if not isinstance(mask, np.ndarray):
             mask = np.asarray(mask)  # Convert to NumPy array if necessary
     else:
         mask = cv.imread(mask_file, cv.IMREAD_GRAYSCALE)
 
+    # Convert boolean mask to single-channel integer image (recommended)
+    if mask.dtype == bool:
+        mask = mask.astype(np.uint8) * 255
+    elif mask.dtype != np.uint8:
+        # Convert any other non-uint8 types to uint8 as well
+        mask = mask.astype(np.uint8)
+        
+    if len(mask.shape) > 2:
+        mask = mask[:,:,0]
+    
     # Ensure mask size matches image
     if mask.shape[:2] != image.shape[:2]:
         mask = cv.resize(mask, (image.shape[1], image.shape[0]), interpolation=cv.INTER_NEAREST)
-
-    # Convert boolean mask to single-channel integer image (recommended)
-    if mask.dtype == bool:
-        mask_uint8 = np.zeros_like(image, dtype=np.uint8)
-        mask_uint8[mask] = 255
-        mask = mask_uint8
 
     # Perform bitwise AND using a copy of the image for efficiency
     hsv_masked = cv.bitwise_and(hsv_image.copy(), hsv_image.copy(), mask=mask)
 
     # Efficiently calculate full and half image histograms
-    hist_full = cv.calcHist([hsv_masked], [0, 1], None, [16, 16], [0, 180, 0, 256])
+    hist_full = cv.calcHist([hsv_masked], [0, 1], None, [16, 16], [0, 180, 0, 256], accumulate=False)
     cv.normalize(hist_full, hist_full, alpha=0, beta=1, norm_type=cv.NORM_MINMAX)
 
-    hist_half = cv.calcHist([hsv_masked[:hsv_masked.shape[0] // 2, :]], [0, 1], None, [16, 16], [0, 180, 0, 256])
+    hist_half = cv.calcHist([hsv_masked[:hsv_masked.shape[0] // 2, :]], [0, 1], None, [16, 16], [0, 180, 0, 256], accumulate=False)
     cv.normalize(hist_half, hist_half, alpha=0, beta=1, norm_type=cv.NORM_MINMAX)
 
     return hist_full, hist_half
@@ -96,6 +108,7 @@ if __name__ == "__main__":
         for filename in os.listdir("images/cam0"):
             if filename.endswith(".jpg") or filename.endswith(".png"):
                 # Load the image
+
                 image_path = os.path.join("images/cam0", filename)
                 image = cv.imread(image_path)
 
@@ -108,6 +121,10 @@ if __name__ == "__main__":
                 # Find contours of people in the image
                 contours, _ = cv.findContours(thresholded_image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
+                threshold = 0.9  # Adjust the threshold as needed
+                best_correlation = 0
+                best_contour = None
+
                 # Iterate through each person in the image
                 for contour in contours:
                     # Create a mask for the current person
@@ -117,7 +134,6 @@ if __name__ == "__main__":
                     # Calculate histogram of the current person's mask
                     full_and_half_person_hist = calc_histogram(image,mask,True)
 
-                    
                     #select the highest value from the 4 comparisons
                     for baseImgHist in full_and_half_baseImg_hist:
                         for queryImgHist in full_and_half_person_hist:
@@ -125,12 +141,17 @@ if __name__ == "__main__":
                             correlation = cv.compareHist(baseImgHist, queryImgHist, cv.HISTCMP_CORREL)
 
                             # Optionally, set a threshold to determine if the initial person matches the current person
-                            threshold = 0.9  # Adjust the threshold as needed
-                            if correlation > threshold:
-                                target_folder="targets/target4/output"
-                                os.mkdir(target_folder,exit_ok=True) ## create folder if doesn't exist
-                                print(f"Initial person matches person in image: {filename} (Correlation: {correlation})")
-                                cv.imwrite(target_folder,filename)
-                                print(f"Image saved in the folder {target_folder}")
+                            if correlation > best_correlation:
+                                best_correlation = correlation
+                                best_contour = contour
+                
+                if best_correlation > threshold and best_contour is not None:
+                    draw_bounding_box_around_person(image, best_contour)
+                    target_folder=os.path.join(target["folder"], "output")
+                    os.makedirs(target_folder,exist_ok=True) ## create folder if doesn't exist
+                    print(f"Initial person matches person in image: {filename} (Correlation: {best_correlation})")
+                    save_path = os.path.join(target_folder, filename)
+                    cv.imwrite(save_path,image)
+                    print(f"Image saved in the folder {target_folder}")
                    
     
