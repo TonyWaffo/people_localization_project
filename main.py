@@ -9,7 +9,7 @@ def draw_bounding_box_around_person(image, contour):
     # Calculate bounding box coordinates for the contour
     x, y, w, h = cv.boundingRect(contour)
     # Draw the bounding box on the image
-    cv.rectangle(image, (x, y), (x+w, y+h), (-1, 255, 0), 2)
+    cv.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
 def generate_mask(target_people):
 
@@ -30,41 +30,26 @@ def generate_mask(target_people):
         result = tools.process_inference(output,image,target["folder"])
 
 
-
+def load_mask(mask_path):
+    mask = np.load(mask_path).astype(np.uint8)
+    return mask
 
 #calculate Histogram -> add parameter values such as the image or what ever
-def calc_histogram(image,mask_file,npy_format):
+def calc_histogram(image, mask):
     # Color space conversion for robust masking
     hsv_image = cv.cvtColor(image, cv.COLOR_BGR2HSV)
 
-    # Load mask (handle both NumPy array and image formats)
-    if isinstance(mask_file, np.ndarray):
-        # The mask is already an ndarray, so use it directly
-        mask = mask_file
-    elif npy_format:
-        mask = np.load(mask_file)
-        print("reading here...")
-        if not isinstance(mask, np.ndarray):
-            mask = np.asarray(mask)  # Convert to NumPy array if necessary
-    else:
-        mask = cv.imread(mask_file, cv.IMREAD_GRAYSCALE)
-
     # Convert boolean mask to single-channel integer image (recommended)
-    if mask.dtype == bool:
-        mask = mask.astype(np.uint8) * 255
-    elif mask.dtype != np.uint8:
-        # Convert any other non-uint8 types to uint8 as well
-        mask = mask.astype(np.uint8)
-        
-    if len(mask.shape) > 2:
-        mask = mask[:,:,0]
+    if mask.ndim > 2:
+        mask = np.logical_or.reduce(mask, axis=1).astype(np.uint8) * 255
     
+        
     # Ensure mask size matches image
-    if mask.shape[:2] != image.shape[:2]:
+    if mask.shape != image.shape[:2]:
         mask = cv.resize(mask, (image.shape[1], image.shape[0]), interpolation=cv.INTER_NEAREST)
 
     # Perform bitwise AND using a copy of the image for efficiency
-    hsv_masked = cv.bitwise_and(hsv_image.copy(), hsv_image.copy(), mask=mask)
+    hsv_masked = cv.bitwise_and(hsv_image, hsv_image, mask=mask)
 
     # Efficiently calculate full and half image histograms
     hist_full = cv.calcHist([hsv_masked], [0, 1], None, [16, 16], [0, 180, 0, 256], accumulate=False)
@@ -82,15 +67,15 @@ if __name__ == "__main__":
 
     target_people = [
             #person1
-            {"folder":"targets/target1", "src" : "person_1.png"},
+            {"folder":"targets\\target1", "src" : "person_1.png"},
             #person2
-            {"folder":"targets/target2", "src" : "person_2.png"},
+            {"folder":"targets\\target2", "src" : "person_2.png"},
             #person3
-            {"folder":"targets/target3", "src" : "person_3.png"},
+            {"folder":"targets\\target3", "src" : "person_3.png"},
             #person4
-            {"folder":"targets/target4", "src" : "person_4.png"},
+            {"folder":"targets\\target4", "src" : "person_4.png"},
             #person5
-            {"folder":"targets/target5", "src" : "person_5.png"},
+            {"folder":"targets\\target5", "src" : "person_5.png"},
     ]
 
 
@@ -99,10 +84,11 @@ if __name__ == "__main__":
 
 
     for target in target_people:
-        target_mask_path=os.path.join(target["folder"],"saved_mask.npy")
-        target_image_path=os.path.join(target["folder"],target["src"])
-        target_image=cv.imread(target_image_path)
-        full_and_half_baseImg_hist=calc_histogram(target_image,target_mask_path,True)
+        target_mask_path = os.path.join(target["folder"],"saved_mask.npy")
+        target_image_path = os.path.join(target["folder"],target["src"])
+        target_image = cv.imread(target_image_path)
+        target_mask = load_mask(target_mask_path)
+        full_and_half_baseImg_hist = calc_histogram(target_image, target_mask)
 
         # Iterate through each file in the folder cam0
         for filename in os.listdir("images/cam0"):
@@ -121,18 +107,27 @@ if __name__ == "__main__":
                 # Find contours of people in the image
                 contours, _ = cv.findContours(thresholded_image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-                threshold = 0.9  # Adjust the threshold as needed
+                # cv.imshow('HSV Image', thresholded_image)
+                # #cv.imshow('Mask', mask)  # Visualize the mask in a way that makes it visible (mask * 255)
+                # cv.waitKey(0)
+
+                threshold = 0.8  # Adjust the threshold as needed
                 best_correlation = 0
                 best_contour = None
-
+                area_threshold = 200 # Adjust the area threshold
+                max_area_threshold = 6000
                 # Iterate through each person in the image
                 for contour in contours:
+                    if cv.contourArea(contour) < area_threshold or cv.contourArea(contour) > max_area_threshold:
+                        continue
                     # Create a mask for the current person
                     mask = np.zeros(gray_image.shape, np.uint8)
                     cv.drawContours(mask, [contour], 0, 255, -1)
 
-                    # Calculate histogram of the current person's mask
-                    full_and_half_person_hist = calc_histogram(image,mask,True)
+                    x, y, w, h = cv.boundingRect(contour)
+
+                    # Calculate histogram of the current person's mask. Crop it to the contour's bounding rect
+                    full_and_half_person_hist = calc_histogram(image[y:y+h, x:x+w], mask[y:y+h, x:x+w])
 
                     #select the highest value from the 4 comparisons
                     for baseImgHist in full_and_half_baseImg_hist:
