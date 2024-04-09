@@ -91,40 +91,49 @@ if __name__ == "__main__":
         full_and_half_baseImg_hist = calc_histogram(target_image, target_mask)
 
         # Iterate through each file in the folder cam0
-        for filename in os.listdir("images/cam0"):
+        for filename in os.listdir("images/camtest"):
             if filename.endswith(".jpg") or filename.endswith(".png"):
                 # Load the image
 
-                image_path = os.path.join("images/cam0", filename)
+                image_path = os.path.join("images/camtest", filename)
                 image = cv.imread(image_path)
 
                 # Convert the image to grayscale
                 gray_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 
+                blur_image = cv.GaussianBlur(gray_image, (5, 5), 0)
                 # Threshold the image to separate people
-                _, thresholded_image = cv.threshold(gray_image, 127, 255, cv.THRESH_BINARY)
+                _, thresholded_image = cv.threshold(blur_image, 70, 255, cv.THRESH_BINARY_INV)
+                # edges = cv.Canny(blur_image, 150, 350)
 
                 # Find contours of people in the image
                 contours, _ = cv.findContours(thresholded_image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-                # cv.imshow('HSV Image', thresholded_image)
-                # #cv.imshow('Mask', mask)  # Visualize the mask in a way that makes it visible (mask * 255)
-                # cv.waitKey(0)
+                
 
-                threshold = 0.8  # Adjust the threshold as needed
+                threshold = 0.6  # Adjust the threshold as needed
                 best_correlation = 0
                 best_contour = None
                 area_threshold = 200 # Adjust the area threshold
-                max_area_threshold = 6000
                 # Iterate through each person in the image
                 for contour in contours:
-                    if cv.contourArea(contour) < area_threshold or cv.contourArea(contour) > max_area_threshold:
+                    x, y, w, h = cv.boundingRect(contour)
+                    # aspect_ratio = float(w) / h
+
+                    if cv.contourArea(contour) < area_threshold:
                         continue
+
+                    # if 0.8 >= aspect_ratio or aspect_ratio >= 1.2:
+                    #     continue
+
                     # Create a mask for the current person
                     mask = np.zeros(gray_image.shape, np.uint8)
                     cv.drawContours(mask, [contour], 0, 255, -1)
 
-                    x, y, w, h = cv.boundingRect(contour)
+                    # cv.imshow('HSV Image', thresholded_image)
+                    #cv.imshow('Mask', mask)  # Visualize the mask in a way that makes it visible (mask * 255)
+                    #cv.waitKey(0)
+
 
                     # Calculate histogram of the current person's mask. Crop it to the contour's bounding rect
                     full_and_half_person_hist = calc_histogram(image[y:y+h, x:x+w], mask[y:y+h, x:x+w])
