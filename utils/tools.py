@@ -4,7 +4,7 @@ from utils.config import THRESHOLD, PERSON_LABEL, MASK_COLOR, ALPHA
 from PIL import Image
 
 # Fonction pour traiter les sorties d'inférence du modèle
-def process_inference(model_output, image,mask_output_dir):
+def process_inference(model_output, image,mask_output_dir,generate_mask_only):
     np_masks = []
     # Extraire les masques, les scores, et les labels de la sortie du modèle
     masks = model_output[0]['masks']
@@ -29,11 +29,16 @@ def process_inference(model_output, image,mask_output_dir):
                                         (ALPHA * MASK_COLOR[c] + (1 - ALPHA) * img_np[:, :, c]),
                                         img_np[:, :, c])
     ## (Optional) save mask
-        #mask_filename = os.path.splitext(os.path.basename(image.filename))[0] + '_mask.npy'
-        mask_path = os.path.join(mask_output_dir, "saved_mask.npy")
-        with open(mask_path, 'wb') as f:
-            np.save(f,np_masks)
+        if generate_mask_only is False:
+            #mask_filename = os.path.splitext(os.path.basename(image.filename))[0] + '_mask.npy'
+            mask_path = os.path.join(mask_output_dir, "saved_mask.npy")
+            with open(mask_path, 'wb') as f:
+                np.save(f,np_masks)
 
+    # renvoie uniquement la liste des masques de l'image
+    if generate_mask_only is True:
+        return np_masks
+    
     # Convertir en image à partir d'un tableau numpy et le renvoyer            
     return Image.fromarray(img_np.astype(np.uint8))
 
