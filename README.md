@@ -1,3 +1,31 @@
+ 
+CSI 4533 
+Projet – Partie 3
+ 
+
+Membres du groupe
+•	Tony Waffo
+•	Arild Yonkeu Tchana
+
+
+
+
+
+Introduction
+Dans le cadre de ce projet, il était question d'utiliser des histogrammes pour identifier les personnes dans une séquence vidéo. Afin d’avoir les résultats optimaux, nous combinons alors la comparaison d’histogramme et le modèle de détection de personnes fourni dans un répertoire GitHub
+
+Méthodologie et explication
+Dans un premier temps, nous avons créé une fonction « generate_mask » qui extrait le masque des personnes qu’on recherche dans nos séquences vidéo. Ainsi pour chacune de ces personnes nous avons créé un répertoire (« target1 », « target2 », « target3 », « target4 » ou « target5 » ) à l’intérieur du dossier « targets ». Dans ces dossiers individuels, nous avons donc une image de la personne recherchée, son masque, ainsi qu’un dossier « output » contenant les résultats de recherche de cette personne.
+En appliquant les modèles et en utilisant le comparateur d’histogramme, nous arrivons ainsi à identifier des corps humains dans les séquences des dossiers « images/cam0 » et « images/cam1 », puis nous les comparons avec la personne courante recherchée. S’il y a un match, on encadre l’individu d’une boite englobante verte et on enregistre l’image en question dans notre dossier « output » situé dans le répertoire « targets/target1 » (pour la personne numéro 1 par exemple).
+
+
+Conclusion
+Notre approche basée sur les histogrammes et les modèles s'avère efficace pour la détection de personnes dans des vidéos. Cependant, des erreurs de détection peuvent survenir lorsque deux entités distinctes ont des variances de couleurs similaires. Pour améliorer la précision, nous pouvons explorer plusieurs pistes: améliorer la discrimination des couleurs, définir un seuil dynamique en fonction du contexte de la vidéo, intégrer des techniques de suivi de mouvement, utiliser des modèles d'apprentissage profond:
+En conclusion, notre approche est prometteuse et offre un grand potentiel pour la détection de personnes dans des vidéos. En explorant les pistes d'amélioration suggérées, nous pouvons encore accroître la performance de notre méthode.
+
+
+
+
 ## Vous utiliserez GIT pour récupérer le code sur votre ordinateur. Assurez-vous que GIT est installé. Veuillez suivre cette documentation :
 ```
 https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
